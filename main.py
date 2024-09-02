@@ -8,7 +8,7 @@ from data.scripts.text import font
 from data.scripts.image_functions import import_image
 
 pygame.init()
-
+pygame.mixer.init()
 
 class GameScreen:
     def __init__(self, width=470, height=470):
@@ -17,9 +17,10 @@ class GameScreen:
         self.window = pygame.display.set_mode(self.SCREEN_SIZE, 0, 32)
         pygame.display.set_caption("Tic Tac Toe")
 
-        self.tile = pygame.image.load("data/images/tile.png").convert()
+        # Import images------------------------------#
+        self.tile = import_image('tile.png')
+        self.tile_hover = self.tile.copy()
         self.tile.set_alpha(15)
-        self.tile_hover = pygame.image.load("data/images/tile.png").convert()
         self.tile_hover.set_alpha(20)
 
         self.name_tile = pygame.transform.scale(self.tile.copy(), [120, 50])
@@ -38,13 +39,25 @@ class GameScreen:
             "like": [self.like, self.like_button_hover]
         }
 
-        self.x = pygame.image.load("data/images/X.png").convert()
+        self.x = import_image('X.png')
         self.x.set_colorkey((0, 0, 0))
-        self.o = pygame.image.load("data/images/O.png").convert()
+        self.o = import_image('O.png')
         self.o.set_colorkey((0, 0, 0))
+
+        self.win = import_image('win.png')
+        self.lost = import_image('lost.png')
+        self.draw = import_image('draw.png')
+
         self.title = import_image('title.png', [8, 8, 8])
         self.text = font('small_font.png', (255, 255, 255), 3)
 
+        # Importing sounds---------------------------------#
+        pygame.mixer.music.load('data/sounds/background_music.mp3')
+        pygame.mixer.music.play(loops=-1)
+
+        self.press_sound = pygame.mixer.Sound('data/sounds/pressed.mp3')
+
+        # Declaring variables------------------------------#
         self.clock = pygame.time.Clock()
         self.FPS = 30
 
@@ -56,6 +69,16 @@ class GameScreen:
         self.server_message_queue = queue.Queue()
         self.connecting = True
         self.run = True
+        self.end_image = None
+        self.game_complete = False
+
+    def reset_game(self):
+        self.board = [[None for _ in range(3)] for _ in range(3)]
+        self.turn = ""
+        self.choice = ""
+        self.pressed = False
+        self.end_image = None
+        self.game_complete = False
 
     def switch_turn(self):
         self.turn = "X" if self.turn == "O" else "O"
@@ -71,6 +94,13 @@ class GameScreen:
 
     def check_second_diagonal(self, value):
         return all(self.board[a][2 - a] == value for a in range(3))
+
+    def check_game_draw(self):
+        for i in range(3):
+            for j in range(3):
+                if not self.board[i][j]:
+                    return False
+        return True
 
     def check_victory(self, i, j):
         value = self.board[i][j]
@@ -90,12 +120,16 @@ class GameScreen:
                     self.window.blit(self.tile_hover, tile_rect.topleft)
                     if self.pressed and self.board[i][j] is None and self.turn == self.choice:
                         self.board[i][j] = self.choice
+                        message = {'pos': [i, j], 'choice': self.choice, "complete": False}
+                        if self.check_game_draw():
+                            self.game_complete = True
+                            self.end_image = self.draw
                         if self.check_victory(i, j):
-                            print(self.turn, "wins")
-                            self.end_game(self.turn)
+                            self.end_image = self.win
+                            self.game_complete = True
+                            message['complete'] = True
                         self.switch_turn()
                         self.pressed = False
-                        message = {'pos': [i, j], 'choice': self.choice}
                         self.client.send_message(message)
                 else:
                     self.window.blit(self.tile, tile_rect.topleft)
@@ -131,9 +165,9 @@ class GameScreen:
             try:
                 message = self.server_message_queue.get_nowait()
                 if message and 'action' in message and message['action'] == "Player connected":
+                    print(message)
                     self.turn = message['turn']
                     self.choice = message['choice']
-                    self.connecting = False
                     self.game_loop()
             except queue.Empty:
                 pass
@@ -142,6 +176,8 @@ class GameScreen:
                 if event.type == QUIT:
                     self.connecting = False
                     self.run = False
+                if event.type == MOUSEBUTTONDOWN:
+                    self.press_sound.play()
 
             pygame.display.update()
             self.clock.tick(self.FPS)
@@ -160,7 +196,8 @@ class GameScreen:
                                           self.buttons[button][0].get_height())
                 if button_rect.collidepoint(mouse_pos):
                     self.window.blit(self.buttons[button][1], button_rect.topleft)
-                    if pygame.mouse.get_pressed()[0]:  # Left button
+                    if pygame.mouse.get_pressed()[0]:
+                        self.press_sound.play()
                         if button == "start":
                             self.connecting_screen()
                         elif button == "exit":
@@ -185,14 +222,23 @@ class GameScreen:
         while self.run:
             mouse_pos = pygame.mouse.get_pos()
             self.window.fill((0, 0, 0))
-            self.draw_board(mouse_pos)
-
-            self.handle_server_messages()
+            if not self.game_complete:
+                self.draw_board(mouse_pos)
+                self.handle_server_messages()
+            else:
+                self.window.blit(self.end_image, [0, 0])
+                self.text.display_fonts(self.window, "Press R to return Home", [110, 300])
 
             for event in pygame.event.get():
                 if event.type == QUIT:
                     self.run = False
+                if event.type == KEYDOWN:
+                    if event.key == pygame.K_r:
+                        self.press_sound.play()
+                        self.reset_game()
+                        self.starting_screen()
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    self.press_sound.play()
                     if self.turn == self.choice:
                         self.pressed = True
 
@@ -202,16 +248,13 @@ class GameScreen:
         pygame.quit()
 
     def handle_server_messages(self):
-        while True:
-            try:
-                message = self.server_message_queue.get_nowait()
-                print("Received message:", message)
-                if 'message' in message:
-                    self.process_server_message(message['message'])
-            except queue.Empty:
-                break
-            except Exception as e:
-                print(f"Error handling server message: {str(e)}")
+        try:
+            message = self.server_message_queue.get_nowait()
+            if 'message' in message:
+                self.process_server_message(message['message'])
+        except Exception as e:
+            pass
+            # print(f"Error handling server message: {str(e)}")
 
     def process_server_message(self, message):
         try:
@@ -219,9 +262,12 @@ class GameScreen:
             choice = message['choice']
             if self.board[pos[0]][pos[1]] is None:
                 self.board[pos[0]][pos[1]] = choice
+                if self.check_game_draw():
+                    self.game_complete = True
+                    self.end_image = self.draw
                 if self.check_victory(pos[0], pos[1]):
-                    print(choice, "wins")
-                    self.end_game(choice)
+                    self.game_complete = True
+                    self.end_image = self.lost
                 self.switch_turn()
         except KeyError as e:
             print(f"Missing expected key in message: {str(e)}")

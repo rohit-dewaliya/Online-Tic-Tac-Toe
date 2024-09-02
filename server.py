@@ -47,7 +47,6 @@ class Server:
             message = pickle.dumps(message)
             message_header = f"{len(message):<{self.HEADER_LENGTH}}".encode('utf-8')
             client_socket.send(message_header + message)
-            print('message sent')
         except:
             print(f"Failed to send a message to {client_socket.getpeername()}")
 
@@ -65,7 +64,6 @@ class Server:
 
                     if len(self.players) == 1:
                         data = {"connection": "Waiting for another player to connect."}
-                        print(data)
                         self.send_message(self.players[0], data)
                     elif len(self.players) == 2:
                         self.game_pair.append([self.players[0], self.players[1]])
@@ -82,12 +80,14 @@ class Server:
                     if message:
                         data = pickle.loads(message['data'])
                         recv = None
+                        game = []
                         for game in self.game_pair:
-                            print(notified_socket)
                             if notified_socket in game:
                                 recv = game[1] if notified_socket == game[0] else game[0]
                                 self.send_message(recv, data)
                                 break
+                        if data['message']['complete']:
+                            self.game_pair.remove(game)
 
                     if not message:
                         print(
