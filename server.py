@@ -4,6 +4,7 @@ import select
 import pickle
 from player_controller import PlayerController
 
+
 class Server:
     def __init__(self, host="localhost", port=1234):
         try:
@@ -46,6 +47,7 @@ class Server:
             message = pickle.dumps(message)
             message_header = f"{len(message):<{self.HEADER_LENGTH}}".encode('utf-8')
             client_socket.send(message_header + message)
+            print('message sent')
         except:
             print(f"Failed to send a message to {client_socket.getpeername()}")
 
@@ -66,32 +68,26 @@ class Server:
                         print(data)
                         self.send_message(self.players[0], data)
                     elif len(self.players) == 2:
-                        new_game = PlayerController(self.players[0], self.players[1])
-                        self.game_pair.append(new_game)
+                        self.game_pair.append([self.players[0], self.players[1]])
                         turn = random.choice([True, False])
-                        turn = "O"
-                        data = {"action": "Player connected", "turn": turn, "choice": "O" if turn else "X"}
-                        self.send_message(new_game.player1, data)
-                        data = {"action": "Player connected", "turn": turn, "choice": "X" if turn else "O"}
-                        self.send_message(new_game.player2, data)
-                        print("new game begins")
+                        turns = "O"
+                        data = {"action": "Player connected", "turn": turns, "choice": "O" if turn else "X"}
+                        self.send_message(self.game_pair[-1][0], data)
+                        data = {"action": "Player connected", "turn": turns, "choice": "X" if turn else "O"}
+                        self.send_message(self.game_pair[-1][1], data)
                         self.players = []
 
                 else:
                     message = self.receive_message(notified_socket)
                     if message:
+                        data = pickle.loads(message['data'])
                         recv = None
                         for game in self.game_pair:
-                            if game.player1 == notified_socket:
-                                recv = game.player2
+                            print(notified_socket)
+                            if notified_socket in game:
+                                recv = game[1] if notified_socket == game[0] else game[0]
+                                self.send_message(recv, data)
                                 break
-                            elif game.player2 == notified_socket:
-                                recv = game.player1
-                                break
-
-                        if recv:
-                            data = pickle.loads(message['data'])
-                            self.send_message(recv, data)
 
                     if not message:
                         print(
@@ -104,7 +100,7 @@ class Server:
             self.socket_list.remove(notified_socket)
             del self.clients[notified_socket]
 
-# Initialize and start the server
+
 server = Server()
 server.binding_socket()
 server.start_server()
