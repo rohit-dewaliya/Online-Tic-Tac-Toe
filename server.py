@@ -18,15 +18,15 @@ class Server:
             self.game_pair = []
 
         except socket.error as error:
-            print("Error occured during socket creation: ", str(error))
+            print("Error occurred during socket creation: ", str(error))
 
     def binding_socket(self):
         try:
             self.server_socket.bind((self.HOST, self.PORT))
-            print('Socket is binded IP : ' + self.HOST + " | PORT : " + str(self.PORT))
+            print('Socket is bound to IP : ' + self.HOST + " | PORT : " + str(self.PORT))
             self.server_socket.listen(10)
         except socket.error as error:
-            print("Error occured during binding: ", str(error))
+            print("Error occurred during binding: ", str(error))
             self.binding_socket()
 
     def receive_message(self, client_socket):
@@ -60,6 +60,7 @@ class Server:
                     self.socket_list.append(client_socket)
                     self.clients[client_socket] = client_address
                     print(f"Connection accepted from {client_address}")
+
                     if len(self.players) == 1:
                         data = {"connection": "Waiting for another player to connect."}
                         print(data)
@@ -68,12 +69,29 @@ class Server:
                         new_game = PlayerController(self.players[0], self.players[1])
                         self.game_pair.append(new_game)
                         turn = random.choice([True, False])
-                        data = {"action": "Player connected", "turn": turn, "choice": new_game.choice}
+                        turn = "O"
+                        data = {"action": "Player connected", "turn": turn, "choice": "O" if turn else "X"}
                         self.send_message(new_game.player1, data)
-                        data = {"action": "Player connected", "turn": True if not turn else False, "choice": "O" if turn else "X"}
+                        data = {"action": "Player connected", "turn": turn, "choice": "X" if turn else "O"}
                         self.send_message(new_game.player2, data)
+                        print("new game begins")
+                        self.players = []
+
                 else:
                     message = self.receive_message(notified_socket)
+                    if message:
+                        recv = None
+                        for game in self.game_pair:
+                            if game.player1 == notified_socket:
+                                recv = game.player2
+                                break
+                            elif game.player2 == notified_socket:
+                                recv = game.player1
+                                break
+
+                        if recv:
+                            data = pickle.loads(message['data'])
+                            self.send_message(recv, data)
 
                     if not message:
                         print(
@@ -82,19 +100,11 @@ class Server:
                         del self.clients[notified_socket]
                         continue
 
-                    # user = self.clients[notified_socket]
-                    # data = pickle.loads(message['data'])
-                    # print(f"Received message from {data['user']}: {data['message']}")
-
-                    # for client_socket in self.clients:
-                    #     if client_socket != notified_socket:
-                    #         self.send_message(client_socket, data)
-
         for notified_socket in socket_exceptions:
             self.socket_list.remove(notified_socket)
             del self.clients[notified_socket]
 
-
+# Initialize and start the server
 server = Server()
 server.binding_socket()
 server.start_server()

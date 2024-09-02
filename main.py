@@ -1,7 +1,6 @@
 import queue
 import threading
 import webbrowser
-
 import pygame
 from pygame.locals import *
 from client import Client
@@ -9,7 +8,6 @@ from data.scripts.text import font
 from data.scripts.image_functions import import_image, scale_image_size
 
 pygame.init()
-
 
 class GameScreen:
     def __init__(self, width=470, height=470):
@@ -51,43 +49,21 @@ class GameScreen:
 
         self.title = import_image('title.png', [8, 8, 8])
 
-        # self.waiting = import_image("waiting.png")
-        # self.win = import_image("win.png")
-        # self.lost = import_image("lost.png")
-
         self.text = font('small_font.png', (255, 255, 255), 3)
 
         self.clock = pygame.time.Clock()
         self.FPS = 30
 
         self.board = [[None for _ in range(3)] for _ in range(3)]
-        self.turn = 'O'
+        self.turn = ""
+        self.choice = ""
         self.pressed = False
 
-        self.client = None
-        # self.connect_server()
         self.client = None
         self.server_message_queue = queue.Queue()  # Shared queue for communication
         self.connecting = True
 
         self.run = True
-
-    # def connect_server(self):
-    #     try:
-    #         self.client = Client()
-    #     except:
-    #         print("Try connecting")
-    #
-    # def connect_players(self):
-    #     message = self.client.receive_messages()
-    #     if message:
-    #         print(message)
-
-    # Creating sub surface from main window if needed------------------------#
-    def create_display(self, ratio=1, width=300, height=300):
-        display_size = [width, height] if ratio == 1 else [
-            self.SCREEN_SIZE[0] // ratio, self.SCREEN_SIZE[1] // ratio]
-        return pygame.Surface(display_size)
 
     def switch_turn(self):
         self.turn = "X" if self.turn == "O" else "O"
@@ -130,19 +106,22 @@ class GameScreen:
                 if margin_x + width * j < mouse_pos[0] < margin_x + width * j + 150 and margin_y + width * i < \
                         mouse_pos[1] < margin_y + width * i + 150:
                     self.window.blit(self.tile_hover, (margin_x + width * j, margin_y + width * i))
-                    if self.pressed and self.board[i][j] is None:
-                        self.board[i][j] = 1 if self.turn == "X" else 0
+                    if self.pressed and self.board[i][j] is None and self.turn == self.choice:
+                        self.board[i][j] = self.choice
                         if self.check_victory(i, j):
                             print(self.turn, " wins")
                         self.switch_turn()
                         self.pressed = False
+                        message = {'pos': [i, j], 'choice': self.choice}
+                        self.client.send_message(message)
+                        print(message, "message sent!\n")
                     else:
                         self.pressed = False
                 else:
                     self.window.blit(self.tile, (margin_x + width * j, margin_y + width * i))
-                if self.board[i][j] == 1:
+                if self.board[i][j] == "X":
                     self.window.blit(self.x, (margin_x + width * j, margin_y + width * i))
-                elif self.board[i][j] == 0:
+                elif self.board[i][j] == "O":
                     self.window.blit(self.o, (margin_x + width * j, margin_y + width * i))
                 margin_x += 5
             margin_y += 5
@@ -158,7 +137,6 @@ class GameScreen:
         while self.connecting:
             message = self.client.receive_messages()
             if message:
-                print(message)
                 self.server_message_queue.put(message)  # Add message to queue
 
     def connecting_screen(self):
@@ -175,6 +153,7 @@ class GameScreen:
                 if message:
                     if 'action' in message and message['action'] == "Player connected":
                         self.turn = message['turn']
+                        self.choice = message['choice']
                         self.connecting = False
                         self.game_loop()
             except queue.Empty:
@@ -190,7 +169,6 @@ class GameScreen:
 
         pygame.quit()
 
-    # Starting Screen-----------------------------------#
     def starting_screen(self):
         run = True
         pressed = False
@@ -208,7 +186,7 @@ class GameScreen:
                     if pressed:
                         if button == "start":
                             self.connecting_screen()
-                        elif button == "end":
+                        elif button == "exit":
                             run = False
                         else:
                             webbrowser.open('www.linkedin.com/in/rohit-dewaliya-a12801280')
@@ -218,7 +196,6 @@ class GameScreen:
 
                 offset += 70
 
-            # self.text.display_fonts(self.window, "Tic Tac Toe", [0, 0], 5)
             for event in pygame.event.get():
                 if event.type == QUIT:
                     run = False
@@ -235,13 +212,28 @@ class GameScreen:
 
         pygame.quit()
 
-    # Main game loop--------------------------------------#
     def game_loop(self):
         while self.run:
             mouse_pos = pygame.mouse.get_pos()
             self.window.fill((0, 0, 0))
 
+            # Draw the board and handle player moves
             self.draw_board(mouse_pos)
+
+            # Check for messages from the server (opponent's move)
+            try:
+                message = self.server_message_queue.get_nowait()
+                if message:
+                    message = message['message']
+                    print(message)
+                    pos = message['pos']
+                    choice = message['choice']
+                    self.board[pos[0]][pos[1]] = choice
+                    if self.check_victory(pos[0], pos[1]):
+                        print(choice, " wins")
+                    self.switch_turn()
+            except queue.Empty:
+                pass
 
             for event in pygame.event.get():
                 if event.type == QUIT:
