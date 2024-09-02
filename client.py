@@ -14,7 +14,8 @@ class Client:
 
         self.client_socket.connect((self.ip, self.port))
 
-        self.client_socket.setblocking(1)
+        self.client_socket.setblocking(True)
+        # self.client_socket.settimeout(0.5)
 
     def send_message(self, message):
         message = {'user': self.username, 'message': message}
@@ -39,10 +40,15 @@ class Client:
                     message_data += packet
 
                 message = pickle.loads(message_data)
+                print(message)
                 # print(message)
                 return message
                 # print(f'Received message from user {message["user"]}: {message["message"]}')
 
+        # except BlockingIOError:
+        #     return None
+        # except socket.timeout:
+        #     return None
         except Exception as e:
             print(f"Error receiving message: {str(e)}")
             return e

@@ -62,14 +62,15 @@ class Server:
                     print(f"Connection accepted from {client_address}")
                     if len(self.players) == 1:
                         data = {"connection": "Waiting for another player to connect."}
+                        print(data)
                         self.send_message(self.players[0], data)
                     elif len(self.players) == 2:
                         new_game = PlayerController(self.players[0], self.players[1])
                         self.game_pair.append(new_game)
                         turn = random.choice([True, False])
-                        data = {"action": "Player connected", "turn": turn}
+                        data = {"action": "Player connected", "turn": turn, "choice": new_game.choice}
                         self.send_message(new_game.player1, data)
-                        data = {"action": "Player connected", "turn": True if not turn else False}
+                        data = {"action": "Player connected", "turn": True if not turn else False, "choice": "O" if turn else "X"}
                         self.send_message(new_game.player2, data)
                 else:
                     message = self.receive_message(notified_socket)

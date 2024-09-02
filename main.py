@@ -1,3 +1,5 @@
+import queue
+import threading
 import webbrowser
 
 import pygame
@@ -63,20 +65,23 @@ class GameScreen:
         self.pressed = False
 
         self.client = None
-        self.connect_server()
+        # self.connect_server()
+        self.client = None
+        self.server_message_queue = queue.Queue()  # Shared queue for communication
+        self.connecting = True
 
         self.run = True
 
-    def connect_server(self):
-        try:
-            self.client = Client()
-        except:
-            print("Try connecting")
-
-    def connect_players(self):
-        message = self.client.receive_messages()
-        if message:
-            return message
+    # def connect_server(self):
+    #     try:
+    #         self.client = Client()
+    #     except:
+    #         print("Try connecting")
+    #
+    # def connect_players(self):
+    #     message = self.client.receive_messages()
+    #     if message:
+    #         print(message)
 
     # Creating sub surface from main window if needed------------------------#
     def create_display(self, ratio=1, width=300, height=300):
@@ -142,18 +147,43 @@ class GameScreen:
                 margin_x += 5
             margin_y += 5
 
+    def connect_server(self):
+        try:
+            self.client = Client()
+            threading.Thread(target=self.connect_players_thread, daemon=True).start()
+        except Exception as e:
+            print(f"Error connecting to server: {str(e)}")
+
+    def connect_players_thread(self):
+        while self.connecting:
+            message = self.client.receive_messages()
+            if message:
+                print(message)
+                self.server_message_queue.put(message)  # Add message to queue
+
     def connecting_screen(self):
+        self.connect_server()
         run = True
-        # pressed = False
         while run:
             self.window.fill((0, 0, 0))
             mouse_pos = pygame.mouse.get_pos()
 
             self.text.display_fonts(self.window, "Connecting...", [160, 200], 5)
-            self.connect_players()
+
+            try:
+                message = self.server_message_queue.get_nowait()
+                if message:
+                    if 'action' in message and message['action'] == "Player connected":
+                        self.turn = message['turn']
+                        self.connecting = False
+                        self.game_loop()
+            except queue.Empty:
+                pass
+
             for event in pygame.event.get():
                 if event.type == QUIT:
-                    run = False
+                    self.connecting = False
+                    self.run = False
 
             pygame.display.update()
             self.clock.tick(self.FPS)
