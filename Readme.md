@@ -1,11 +1,10 @@
 # Multiplayer Tic Tac Toe Game
 
 
-[Online Tic Tac Toe.mp4](data/videos/Online%20Tic%20Tac%20Toe.mp4)
 
-<video width="320" height="240" controls>
-  <source src="data/videos/Online Tic Tac Toe.mp4" type="video/mp4">
-</video>
+https://github.com/user-attachments/assets/c3a9ac5e-1a63-4b79-af3b-4f11f81f738b
+
+
 
 Welcome to the Multiplayer Tic-Tac-Toe game! This project is a Python-based implementation using Pygame for the client-side and Python's socket library for the server-client architecture. The game allows two players to connect over a network and play Tic-Tac-Toe against each other.
 
