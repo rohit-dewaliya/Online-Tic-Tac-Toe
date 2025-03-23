@@ -1,4 +1,12 @@
 # Multiplayer Tic Tac Toe Game
+
+
+[Online Tic Tac Toe.mp4](data/videos/Online%20Tic%20Tac%20Toe.mp4)
+
+<video width="320" height="240" controls>
+  <source src="data/videos/Online Tic Tac Toe.mp4" type="video/mp4">
+</video>
+
 Welcome to the Multiplayer Tic-Tac-Toe game! This project is a Python-based implementation using Pygame for the client-side and Python's socket library for the server-client architecture. The game allows two players to connect over a network and play Tic-Tac-Toe against each other.
 
 ## Libraries Used
@@ -8,6 +16,7 @@ Welcome to the Multiplayer Tic-Tac-Toe game! This project is a Python-based impl
 4. logging
 5. queue
 
+---
 ## Prerequisites
 
 - Python 3.x
@@ -17,6 +26,7 @@ pip install pygame
 ```
 - A modern web browser (optional, for opening social links)
 
+---
 ## Setup Instructions
 ### 1. Clone Repository
 ```commandline
@@ -46,6 +56,7 @@ Once two players are connected:
 - The first player to get three of their marks in a row (vertically, horizontally, or diagonally) wins.
 - If all tiles are filled and there is no winner, the game ends in a draw.
 
+---
 ## How the Server and Clients Work
 ### Server
 - The server uses Python's socket and select libraries to handle multiple client connections.
@@ -58,6 +69,7 @@ Once two players are connected:
 - It connects to the server using a TCP connection and listens for incoming messages (like opponent moves).
 - The client sends messages to the server, such as player moves, using the pickle module for serialization.
 
+---
 ## Why Threading is Used
 Threading is used in both the server and client to handle multiple tasks concurrently:
 - **Server:** The server uses threading to manage multiple client connections simultaneously. Each client is handled in its own thread, allowing the server to receive and send messages to different clients without blocking the entire server process.
@@ -65,6 +77,7 @@ Threading is used in both the server and client to handle multiple tasks concurr
 
 - **Client:** The client uses threading to listen for incoming messages from the server while the main game loop runs. This allows the game to remain responsive to user input while still receiving updates from the opponent.
 
+---
 ## Logging
 
 The server includes a logging mechanism to track important events and facilitate debugging. The log file, `server_log.log`, records the following details:
